@@ -1,8 +1,11 @@
+#[cfg(target_os = "macos")]
+use core_graphics::display::{CGDisplay, kCGWindowImageDefault, kCGNullWindowID, kCGWindowListOptionOnScreenOnly, CGMainDisplayID};
+#[cfg(target_os = "windows")]
+use windows::Win32::Graphics::Capture;
+
 use std::{net::UdpSocket};
 use ndarray::Array2;
-use screenshots::{Screen};
-use std::thread;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use kiddo::float::{kdtree::KdTree, distance::squared_euclidean};
 use image::{RgbaImage};
 
@@ -12,34 +15,41 @@ fn main() -> std::io::Result<()> {
         let kdtree: KdTree<f32, usize, 3, 32, u16> = KdTree::from(&items);
 
         let socket = UdpSocket::bind("0.0.0.0:0").expect("Could not bind to socket");
-        let screens = Screen::all().unwrap();
-        let main_screen = &screens[0];
-
-        let (width, height) = (main_screen.display_info.width*2, main_screen.display_info.height*2);
+        let main_screen = CGDisplay::new(unsafe { CGMainDisplayID() });
+        let size = main_screen.screen_size();
+        let (width, height) = (size.width as u32, size.height as u32);
         
-        let inside_dur = Duration::from_micros(650);
+        // let inside_dur = Duration::from_micros(650);
+        let mut t = SystemTime::now();
+        let mut cnt = 0;
         loop {
-            let ss: Vec<u8> = main_screen.capture().unwrap().into();
+            // let t = SystemTime::now();
+            let sc = CGDisplay::screenshot(main_screen.bounds(), kCGWindowListOptionOnScreenOnly, kCGNullWindowID, kCGWindowImageDefault).unwrap();
 
-            let img: image::DynamicImage = RgbaImage::from_vec(width, height, ss).unwrap().into();
+            let img: image::DynamicImage = RgbaImage::from_raw(width, height, sc.data().bytes().to_vec()).unwrap().into();
             let resized = img.resize(336, 240, image::imageops::FilterType::Nearest).into_rgba8();
             
             let mut out = Array2::<u8>::zeros((240, 336));
             for (x,y,pixel) in resized.enumerate_pixels() {
                 out[[y as usize, x as usize]] = kdtree.nearest_one(&[pixel.0[0] as f32, pixel.0[1] as f32, pixel.0[2] as f32], &squared_euclidean).1 as u8;
             }
-
             for (i,r) in (0u8..).zip(out.rows()) {
                 let data: &[u8] = &[&[i], r.to_slice().unwrap()].concat();
-                match socket.send_to(&data, "192.168.4.1:1234") {
+                match socket.send_to(&data, "192.168.1.109:1234") {
                     Ok(_) => (),
                     Err(e) => println!("Error: {}", e),
                 }
-                thread::sleep(inside_dur);
+                // thread::sleep(inside_dur);
             }
-            // let dur = Duration::from_secs(1);
+            cnt += 1;
+            if t.elapsed().unwrap().as_secs() >= 1 {
+                println!("FPS: {}", cnt);
+                cnt = 0;
+                t = SystemTime::now();
+            }
+            let dur = Duration::from_secs(1);
             // thread::sleep(dur);
-            match socket.send_to(&[], "192.168.4.1:1234") {
+            match socket.send_to(&[], "192.168.1.109:1234") {
                 Ok(_) => (),
                 Err(e) => println!("Error: {}", e),
             }
