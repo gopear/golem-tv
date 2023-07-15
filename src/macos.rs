@@ -1,28 +1,68 @@
-use core_graphics::display::{CGDisplay, kCGWindowImageDefault, kCGNullWindowID, kCGWindowListOptionOnScreenOnly, CGMainDisplayID};
+use core_graphics::display::{
+    kCGNullWindowID, kCGWindowImageDefault, kCGWindowListOptionOnScreenOnly, CGDisplay,
+    CGMainDisplayID,
+};
+use std::fmt;
 
 pub struct Display {
-    id: u32
+    pub width: u32,
+    pub height: u32,
+    display: CGDisplay,
+}
+
+#[derive(Debug, Clone)]
+pub struct CaptureError;
+
+// Generation of an error is completely separate from how it is displayed.
+// There's no need to be concerned about cluttering complex logic with the display style.
+//
+// Note that we don't store any extra info about the errors. This means we can't state
+// which string failed to parse without modifying our types to carry that information.
+impl fmt::Display for CaptureError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "Could not get image")
+    }
 }
 
 impl Display {
-    pub fn new(id: Option<u32>) -> Option<Display> {
-        match GDisplay::new(id.unwrap_or(CGMainDisplayID())) {
-            Ok(display) => Some(Display { id: id }),
-            Err(_) => None
+    pub fn new(id: u32) -> Self {
+        let display = CGDisplay::new(unsafe { CGMainDisplayID() });
+
+        let (width, height) = (display.pixels_wide() as u32, display.pixels_high() as u32);
+
+        Display {
+            width,
+            height,
+            display,
         }
     }
 
-    pub fn capture(&self) -> Option<CGImage> {
-        let image = CGDisplay::(
-            CGDisplay::main().id(),
-            kCGNullWindowID,
-            kCGWindowImageDefault,
-            kCGWindowListOptionOnScreenOnly
-        );
+    pub fn capture(&self) -> Result<Vec<u8>, CaptureError> {
+        match self.display.image() {
+            Some(image) => {
+                let size = (self.width * self.height * 4) as usize;
+                let mut rgba = vec![0u8; size];
 
-        match image {
-            Ok(image) => Some(image),
-            Err(_) => None
+                let u_width = self.width as usize;
+                let u_height = self.height as usize;
+                let bytes_per_row = image.bytes_per_row();
+
+                let bgra = image.data().bytes().to_vec();
+
+                for r in 0..u_height {
+                    for c in 0..u_width {
+                        let index = (r * u_width + c) * 4;
+                        let i = r * bytes_per_row + c * 4;
+
+                        rgba[index] = bgra[i];
+                        rgba[index + 1] = bgra[i + 1];
+                        rgba[index + 2] = bgra[i + 2];
+                        rgba[index + 3] = 255;
+                    }
+                }
+                Ok(rgba)
+            }
+            None => Err(CaptureError),
         }
     }
 }
