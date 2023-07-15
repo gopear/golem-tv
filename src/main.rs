@@ -31,10 +31,12 @@ fn main()  {
     let mut t = SystemTime::now();
     let mut cnt = 0;
 
-    let tvs = [[TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")), TV::new(1, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54"))],
-                             [TV::new(2, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")), TV::new(3, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54"))]];
-    // let tvs = [[TV::new(0, String::from("192.168.0.54")), TV::new(1, String::from("192.168.0.56"))],
-    //                          [TV::new(2, String::from("192.168.0.51")), TV::new(3, String::from("192.168.0.57"))]];
+    let tvs = [
+                                [TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")), TV::new(1, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.57"))],
+                                [TV::new(2, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.56")), TV::new(3, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.58"))],
+                            ];
+
+    // let tvs = [[TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54"))]];
 
     let (wall_width, wall_height) = (tvs[0].len() as u32, tvs.len() as u32);
     let (wall_res_width, wall_res_height) = (WIDTH * wall_width, HEIGHT * wall_height);
@@ -59,10 +61,15 @@ fn main()  {
 
         let resized = img
             .resize_exact(wall_res_width, wall_res_height, image::imageops::FilterType::Nearest);
+        // resized.save("out.png").unwrap();
         for (row_i, tv_row) in tvs.iter().enumerate() {
             for (col_i, tv) in tv_row.iter().enumerate() {
+                // let current_part = resized.crop_imm((col_i as u32)*WIDTH, (row_i as u32)*HEIGHT, WIDTH, HEIGHT).into_rgba8();
                 let current_part = resized.crop_imm((col_i as u32)*WIDTH+tv.sides, (row_i as u32)*HEIGHT+tv.top, WIDTH-(tv.sides*2), HEIGHT-tv.top-tv.bottom).resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Nearest).into_rgba8();
-                // let id = tv.id;
+                let id = tv.id;
+                // ori.save(format!("tv{id}.png")).unwrap();
+                // current_part.save(format!("tv{id}_crop.png")).unwrap();
+               
                 let tv_out = current_part
                     .pixels()
                     .map(|p| {
@@ -76,8 +83,8 @@ fn main()  {
                     .collect::<Vec<u8>>();
 
                 let ip = tv.ip.clone();
-                tv_out.chunks(WIDTH as usize).for_each(|r| {
-                    match socket.send_to(&r, format!("{ip}:1234")) {
+                tv_out.chunks(WIDTH as usize).enumerate().for_each(|(i,r)| {
+                    match socket.send_to(&[&[i as u8], r].concat(), format!("{ip}:1234")) {
                         Ok(_) => (),
                         Err(e) => println!("Error: {}", e),
                     }
@@ -89,6 +96,7 @@ fn main()  {
                 }
             }
         }
+        
         cnt += 1;
         if t.elapsed().unwrap().as_secs() >= 1 {
             println!("FPS: {}", cnt);
