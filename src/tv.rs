@@ -1,5 +1,3 @@
-use ndarray::{s, SliceInfo};
-
 pub const WIDTH: u32 = 336;
 pub const HEIGHT: u32 = 240;
 pub struct TV {

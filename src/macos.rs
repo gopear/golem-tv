@@ -1,13 +1,10 @@
-use core_graphics::display::{
-    kCGNullWindowID, kCGWindowImageDefault, kCGWindowListOptionOnScreenOnly, CGDisplay,
-    CGMainDisplayID,
-};
+use core_graphics::display::{CGDisplay,CGMainDisplayID};
 use std::fmt;
 
 pub struct Display {
     pub width: u32,
     pub height: u32,
-    display: CGDisplay,
+    display: CGDisplay
 }
 
 #[derive(Debug, Clone)]
@@ -26,20 +23,22 @@ impl fmt::Display for CaptureError {
 
 impl Display {
     pub fn new(id: u32) -> Self {
-        let display = CGDisplay::new(unsafe { CGMainDisplayID() });
+        unsafe { CGMainDisplayID() }; //for some reason this is needed to get the correct display
 
+        let display = CGDisplay::new(id);
         let (width, height) = (display.pixels_wide() as u32, display.pixels_high() as u32);
 
         Display {
             width,
             height,
-            display,
+            display
         }
     }
 
     pub fn capture(&self) -> Result<Vec<u8>, CaptureError> {
         match self.display.image() {
             Some(image) => {
+                
                 let size = (self.width * self.height * 4) as usize;
                 let mut rgba = vec![0u8; size];
 
