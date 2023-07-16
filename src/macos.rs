@@ -53,9 +53,9 @@ impl Display {
                         let index = (r * u_width + c) * 4;
                         let i = r * bytes_per_row + c * 4;
 
-                        rgba[index] = bgra[i];
+                        rgba[index] = bgra[i + 2];
                         rgba[index + 1] = bgra[i + 1];
-                        rgba[index + 2] = bgra[i + 2];
+                        rgba[index + 2] = bgra[i];
                         rgba[index + 3] = 255;
                     }
                 }
