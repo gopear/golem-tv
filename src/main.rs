@@ -23,7 +23,7 @@ use serde_json::{Result, Value};
 
 
 mod tv;
-use tv::TV;
+use tv::{TV, WIDTH, HEIGHT};
 
 #[derive(Serialize, Deserialize)]
 struct Config {
@@ -114,8 +114,8 @@ fn main() {
         tvs.par_iter().for_each(|tv| {
             let current_part = resized
                 .crop_imm(
-                    0,
-                    0,
+                    tv.x,
+                    tv.y,
                     tv.width,
                     tv.height,
                     // (col_i as u32) * WIDTH + tv.sides,
@@ -123,7 +123,7 @@ fn main() {
                     // WIDTH - (tv.sides * 2),
                     // HEIGHT - tv.top - tv.bottom,
                 )
-                .resize_to_fill(tv.width, tv.height, image::imageops::FilterType::Nearest)
+                .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Nearest)
                 .into_rgba8();
             // let id = tv.id;
             // ori.save(format!("tv{id}.png")).unwrap();
@@ -138,10 +138,10 @@ fn main() {
 
             let ip = tv.ip.clone();
             tv_out
-                .chunks((tv.width*3) as usize)
+                .chunks((WIDTH*3) as usize)
                 .enumerate()
                 .for_each(|(i, r)| {
-                    match socket.send_to(&[&[(i * 3) as u8], r].concat(), format!("{ip}:1234")) {
+                    match socket.send_to(&[&[(i*3) as u8], r].concat(), format!("{ip}:1234")) {
                         Ok(_) => (),
                         Err(e) => println!("Error: {}", e),
                     }

@@ -1,5 +1,8 @@
 use serde::{Serialize, Deserialize};
 
+pub const WIDTH: u32 = 336;
+pub const HEIGHT: u32 = 240;
+
 #[derive(Serialize, Deserialize)]
 pub struct TV {
     pub id: u32,
