@@ -61,28 +61,6 @@ fn main() {
         println!("{}: {}", tv.id, tv.ip);
     });
 
-    // let tvs =  [
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    // ];
-
-    // let (wall_width, wall_height) = (tvs[0].len() as u32, tvs.len() as u32);
-    // let (wall_res_width, wall_res_height) = (WIDTH * wall_width, HEIGHT * wall_height);
-    // println!("{}x{}", wall_res_width, wall_res_height);
-
-    // let kdtree = Arc::new(kdtree);
-    // let socket = Arc::new(socket);
-
     loop {
         let sc = main_screen.capture().unwrap();
         if sc.len() == 0 {
@@ -91,28 +69,8 @@ fn main() {
 
         let img: image::DynamicImage = RgbaImage::from_raw(width, height, sc).unwrap().into();
 
-        // let mut out = Array2::<u8>::zeros((wall_res_height as usize, wall_res_width as usize));
-        // for (x, y, pixel) in resized.enumerate_pixels() {
-        //     out[[y as usize, x as usize]] = kdtree
-        //         .nearest_one(
-        //             &[pixel.0[0] as f32, pixel.0[1] as f32, pixel.0[2] as f32],
-        //             &squared_euclidean,
-        //         )
-        //         .1 as u8;
-        // }
-
-        // let resized = img.resize_exact(
-        //     wall_res_width,
-        //     wall_res_height,
-        //     image::imageops::FilterType::Nearest,
-        // );
-        // let resized = Arc::new(resized);
-        let resized = img;
-        // resized.save("out.png").unwrap();
-
-
         tvs.par_iter().for_each(|tv| {
-            let current_part = resized
+            let current_part = img
                 .crop_imm(
                     tv.x,
                     tv.y,
