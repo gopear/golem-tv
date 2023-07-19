@@ -25,7 +25,7 @@ impl Display {
     pub fn new(id: u32) -> Self {
         unsafe { CGMainDisplayID() }; //for some reason this is needed to get the correct display
 
-        let display = CGDisplay::new(id);
+        let display = CGDisplay::main();
         let (width, height) = (display.pixels_wide() as u32, display.pixels_high() as u32);
 
         Display {
@@ -38,7 +38,6 @@ impl Display {
     pub fn capture(&self) -> Result<Vec<u8>, CaptureError> {
         match self.display.image() {
             Some(image) => {
-                
                 let size = (self.width * self.height * 4) as usize;
                 let mut rgba = vec![0u8; size];
 
@@ -61,7 +60,9 @@ impl Display {
                 }
                 Ok(rgba)
             }
-            None => Err(CaptureError),
+            None => {
+                Err(CaptureError)
+            },
         }
     }
 }
