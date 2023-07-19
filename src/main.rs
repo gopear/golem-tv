@@ -8,15 +8,38 @@ mod macos;
 #[cfg(target_os = "macos")]
 use macos::Display;
 
-mod tv;
-use tv::{HEIGHT, TV, WIDTH};
+// mod tv;
+// use tv::{HEIGHT, TV, WIDTH};
 
 use image::RgbaImage;
 use rayon::prelude::*;
 // use kiddo::float::{kdtree::KdTree, distance::squared_euclidean};
 // use ndarray::{Array2, s};
-use std::net::UdpSocket;
+use std::{net::UdpSocket, fs::File};
+// use tokio::net::UdpSocket;
 use std::time::SystemTime;
+use serde::{Serialize, Deserialize};
+use serde_json::{Result, Value};
+
+
+mod tv;
+use tv::TV;
+
+#[derive(Serialize, Deserialize)]
+struct ConfigTV {
+    id: u32,
+    ip: String,
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+}
+
+#[derive(Serialize, Deserialize)]
+struct Config {
+    TVs: Vec<ConfigTV>,
+    display_id: u32,
+}
 
 
 fn main() {
@@ -25,29 +48,41 @@ fn main() {
     let lut = std::fs::read("palette.lut").unwrap();
     println!("LUT loaded");
 
-    let socket = UdpSocket::bind("0.0.0.0:0").expect("Could not bind to socket");
+    let socket = UdpSocket::bind("0.0.0.0:0").expect("couldn't bind to address");
 
-    let mut main_screen = Display::new(0);
+    let mut main_screen = Display::new(1);
     let (width, height) = (main_screen.width as u32, main_screen.height as u32);
     println!("{}x{}", width, height);
 
     let mut t = SystemTime::now();
     let mut cnt = 0;
 
-    let tvs =  [
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-        TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
-    ];
+    let config_str = std::fs::read_to_string("config.json").unwrap();
+    let config: Config = serde_json::from_str(config_str.as_str()).unwrap();
+
+    let tvs = config.TVs.iter().map(|tv| {
+        TV::new(tv.id, tv.x, tv.y, tv.width, tv.height, tv.ip.clone())
+    }).collect::<Vec<TV>>();
+
+
+    tvs.iter().for_each(|tv| {
+        println!("{}: {}", tv.id, tv.ip);
+    });
+
+    // let tvs =  [
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.54")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    //     TV::new(0, 5.0, 5.0, 5.0, 110.0, String::from("192.168.0.55")),
+    // ];
 
     // let (wall_width, wall_height) = (tvs[0].len() as u32, tvs.len() as u32);
     // let (wall_res_width, wall_res_height) = (WIDTH * wall_width, HEIGHT * wall_height);
@@ -89,14 +124,14 @@ fn main() {
                 .crop_imm(
                     0,
                     0,
-                    WIDTH,
-                    HEIGHT,
+                    tv.width,
+                    tv.height,
                     // (col_i as u32) * WIDTH + tv.sides,
                     // (row_i as u32) * HEIGHT + tv.top,
                     // WIDTH - (tv.sides * 2),
                     // HEIGHT - tv.top - tv.bottom,
                 )
-                .resize_to_fill(WIDTH, HEIGHT, image::imageops::FilterType::Nearest)
+                .resize_to_fill(tv.width, tv.height, image::imageops::FilterType::Nearest)
                 .into_rgba8();
             // let id = tv.id;
             // ori.save(format!("tv{id}.png")).unwrap();
@@ -111,7 +146,7 @@ fn main() {
 
             let ip = tv.ip.clone();
             tv_out
-                .chunks(WIDTH as usize)
+                .chunks(tv.width as usize)
                 .enumerate()
                 .for_each(|(i, r)| {
                     match socket.send_to(&[&[i as u8], r].concat(), format!("{ip}:1234")) {
@@ -126,11 +161,11 @@ fn main() {
             }
         });
 
-        cnt += 1;
-        if t.elapsed().unwrap().as_secs() >= 1 {
-            println!("FPS: {}", cnt);
-            cnt = 0;
-            t = SystemTime::now();
-        }
+        // cnt += 1;
+        // if t.elapsed().unwrap().as_secs() >= 1 {
+        //     println!("FPS: {}", cnt);
+        //     cnt = 0;
+        //     t = SystemTime::now();
+        // }
     }
 }
