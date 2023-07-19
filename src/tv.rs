@@ -1,3 +1,6 @@
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct TV {
     pub id: u32,
     pub ip: String,

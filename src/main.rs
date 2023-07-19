@@ -26,18 +26,8 @@ mod tv;
 use tv::TV;
 
 #[derive(Serialize, Deserialize)]
-struct ConfigTV {
-    id: u32,
-    ip: String,
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-}
-
-#[derive(Serialize, Deserialize)]
 struct Config {
-    TVs: Vec<ConfigTV>,
+    TVs: Vec<TV>,
     display_id: u32,
 }
 
