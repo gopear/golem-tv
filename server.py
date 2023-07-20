@@ -31,7 +31,7 @@ class App:
             time.sleep(1/25)
 
     def get_screen(self, idx):
-        config = self.config['TVs'][idx]
+        config = self.config['TVs'][idx-1]
         cropped = self.shaped[config['y']:config['y']+config['height'], config['x']:config['x']+config['width'],:]
         scaled = cv2.resize(cropped, (HEIGHT, WIDTH))
         linear = np.reshape(scaled, ((HEIGHT * WIDTH, 3)))
@@ -45,8 +45,8 @@ class ESPHandler(socketserver.BaseRequestHandler):
         global app
         self.data = self.request.recv(1024).strip()
         screen = app.get_screen(int(self.data))
-        print(f'sending {len(screen.tobytes())}')
-        self.request.sendall(screen.tobytes())
+        print(f'sending {len(screen.tobytes())} to {self.data}')
+        self.request.send(screen.tobytes())
 
 class Server:
     def __init__(self):
