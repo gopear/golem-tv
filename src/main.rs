@@ -59,20 +59,20 @@ async fn main() -> std::io::Result<()>  {
 
       img = RgbaImage::from_raw(width, height, sc).unwrap().into();
 
-      let (socket, _) = listener.accept().await.unwrap();
-      // let mut dst = String::new();
-      // let _ = socket.read_to_string(&mut dst);
-      // let id = dst.trim().parse::<u32>().unwrap();
+      let (mut socket, _) = listener.accept().await.unwrap();
 
-      // let tvs = tvs.clone();
-      // let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
-      let current_tv = &tvs[1];
-      let id = 1;
-      process(socket, id, current_tv, img, lut.clone()).await;
+      let mut buffer = [0; 2];
+      let bytes_read = socket.read(&mut buffer).await.unwrap();
+      let data = String::from_utf8_lossy(&buffer[..bytes_read]);
+      let cleaned_data: String = data.chars().filter(|&c| !c.is_whitespace()).collect();
+      let id = cleaned_data.parse::<u32>().unwrap();
+
+      let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
+      process(socket, current_tv, img, lut.clone()).await;
     }
 }
 
-async fn process(mut socket: TcpStream, id: u32, tv: &TV, img: DynamicImage, lut: Arc<Vec<u8>>) {
+async fn process(mut socket: TcpStream, tv: &TV, img: DynamicImage, lut: Arc<Vec<u8>>) {
   let current_part = img
     .crop_imm(
         tv.x,
@@ -96,7 +96,7 @@ async fn process(mut socket: TcpStream, id: u32, tv: &TV, img: DynamicImage, lut
         .collect::<Vec<u8>>();
 
     
-    println!("Sending to {}", id);
-    socket.write_all(tv_out.as_slice()).await.unwrap();
+    println!("Sending to {}", tv.id);
+    socket.write(tv_out.as_slice()).await.unwrap();
     
 }
