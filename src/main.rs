@@ -46,29 +46,38 @@ async fn main() -> std::io::Result<()>  {
     let (width, height) = (main_screen.width as u32, main_screen.height as u32);
     println!("{}x{}", width, height);
 
-    let mut img = image::DynamicImage::new_rgba8(width, height);
-
     let listener = TcpListener::bind("0.0.0.0:12345").await?;
 
     let counter = Arc::new(Mutex::new([0; 13]));
 
+    let mut sc = main_screen.capture().unwrap();
+    let mut img: Arc<DynamicImage> = Arc::new(RgbaImage::from_raw(width, height, sc).unwrap().into());
+
+    let timeout = std::time::Duration::from_millis(1000);
+    let mut time = std::time::Instant::now();
+    let mut sync_sum = 11;
     loop {
 
-      let sc = main_screen.capture().unwrap();
-      if sc.len() == 0 {
-          continue;
-      }
-
-      img = RgbaImage::from_raw(width, height, sc).unwrap().into();
-
       let (mut socket, _) = listener.accept().await.unwrap();
-      let tvs = tvs.clone();
-      let lut = lut.clone();
       let counter = counter.clone();
 
-      if counter.lock().unwrap().iter().sum::<i32>() == 12 {
-        counter.lock().unwrap().iter_mut().for_each(|c| *c = 0);
-      }
+    //   if counter.lock().unwrap().iter().sum::<i32>() == sync_sum || time.elapsed() > timeout {
+    //     counter.lock().unwrap().iter_mut().for_each(|c| *c = 0);
+        
+        sc = main_screen.capture().unwrap();
+        img = Arc::new(RgbaImage::from_raw(width, height, sc).unwrap().into());
+
+    //     if time.elapsed() > timeout {
+    //         sync_sum -= 1;
+
+    //     }
+
+    //     time = std::time::Instant::now();
+    //   }
+
+      let tvs = tvs.clone();
+      let lut = lut.clone();
+      let img = img.clone();
 
       tokio::spawn(async move {
 
@@ -78,16 +87,19 @@ async fn main() -> std::io::Result<()>  {
         let cleaned_data: String = data.chars().filter(|&c| !c.is_whitespace()).collect();
         let id = cleaned_data.parse::<u32>().unwrap();
 
-        if counter.lock().unwrap()[id as usize] == 0 {
-            let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
-            process(socket, current_tv, img, lut, counter.clone()).await;
-        }
+        let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
+        process(socket, current_tv, img, lut, counter.clone()).await;
+
+        // if counter.lock().unwrap()[id as usize] == 0 {
+        //     let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
+        //     process(socket, current_tv, img, lut, counter.clone()).await;
+        // }
         
       });
     }
 }
 
-async fn process(mut socket: TcpStream, tv: &TV, img: DynamicImage, lut: Arc<Vec<u8>>, counter: Arc<Mutex<[i32; 13]>>) {
+async fn process(mut socket: TcpStream, tv: &TV, img: Arc<DynamicImage>, lut: Arc<Vec<u8>>, counter: Arc<Mutex<[i32; 13]>>) {
   let current_part = img
     .crop_imm(
         tv.x,
