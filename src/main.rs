@@ -15,7 +15,7 @@ use image::{RgbaImage, DynamicImage};
 // use kiddo::float::{kdtree::KdTree, distance::squared_euclidean};
 // use ndarray::{Array2, s};
 // use tokio::net::UdpSocket;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use serde::{Serialize, Deserialize};
 use tokio::{net::{TcpListener, TcpStream}, io::{AsyncReadExt, AsyncWriteExt}};
 
@@ -50,6 +50,8 @@ async fn main() -> std::io::Result<()>  {
 
     let listener = TcpListener::bind("0.0.0.0:12345").await?;
 
+    let counter = Arc::new(Mutex::new([0; 13]));
+
     loop {
 
       let sc = main_screen.capture().unwrap();
@@ -60,19 +62,32 @@ async fn main() -> std::io::Result<()>  {
       img = RgbaImage::from_raw(width, height, sc).unwrap().into();
 
       let (mut socket, _) = listener.accept().await.unwrap();
+      let tvs = tvs.clone();
+      let lut = lut.clone();
+      let counter = counter.clone();
 
-      let mut buffer = [0; 2];
-      let bytes_read = socket.read(&mut buffer).await.unwrap();
-      let data = String::from_utf8_lossy(&buffer[..bytes_read]);
-      let cleaned_data: String = data.chars().filter(|&c| !c.is_whitespace()).collect();
-      let id = cleaned_data.parse::<u32>().unwrap();
+      if counter.lock().unwrap().iter().sum::<i32>() == 12 {
+        counter.lock().unwrap().iter_mut().for_each(|c| *c = 0);
+      }
 
-      let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
-      process(socket, current_tv, img, lut.clone()).await;
+      tokio::spawn(async move {
+
+        let mut buffer = [0; 2];
+        let bytes_read = socket.read(&mut buffer).await.unwrap();
+        let data = String::from_utf8_lossy(&buffer[..bytes_read]);
+        let cleaned_data: String = data.chars().filter(|&c| !c.is_whitespace()).collect();
+        let id = cleaned_data.parse::<u32>().unwrap();
+
+        if counter.lock().unwrap()[id as usize] == 0 {
+            let current_tv = tvs.iter().find(|tv| tv.id == id).unwrap();
+            process(socket, current_tv, img, lut, counter.clone()).await;
+        }
+        
+      });
     }
 }
 
-async fn process(mut socket: TcpStream, tv: &TV, img: DynamicImage, lut: Arc<Vec<u8>>) {
+async fn process(mut socket: TcpStream, tv: &TV, img: DynamicImage, lut: Arc<Vec<u8>>, counter: Arc<Mutex<[i32; 13]>>) {
   let current_part = img
     .crop_imm(
         tv.x,
@@ -97,6 +112,7 @@ async fn process(mut socket: TcpStream, tv: &TV, img: DynamicImage, lut: Arc<Vec
 
     
     println!("Sending to {}", tv.id);
-    socket.write(tv_out.as_slice()).await.unwrap();
+    counter.lock().unwrap()[tv.id as usize] = 1;
+    socket.write(&tv_out).await.unwrap();
     
 }
